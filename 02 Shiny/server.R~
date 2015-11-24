@@ -10,54 +10,34 @@ require(DT)
 
 shinyServer(function(input, output) {
   
-  KPI_value <- reactive({input$KPI1})
+  KPI_value <- reactive({input$KPI1})     
+  KPI_Medium_Max_value <- reactive({input$KPI2})
   rv <- reactiveValues(alpha = 0.50)
+  observeEvent(input$light, { rv$alpha <- 0.50 })
+  observeEvent(input$dark, { rv$alpha <- 0.75 })
   
   df1 <- eventReactive(input$clicks1, {data.frame(fromJSON(getURL(URLencode(gsub("\n", " ", 'skipper.cs.utexas.edu:5001/rest/native/?query=
-"select GovType, TotalCost, SchoolSize, GradRate,
-CASE
-when GradRate < "p1" then \\\'Fail\\\'
-else \\\'Pass\\\'
-end kpi
-from (select TotalCost, SchoolSize, GradRate,
-CASE CONTROL
-WHEN 1 THEN \\\'Public\\\'
-WHEN 2 THEN \\\'Private Nonprofit\\\'
-WHEN 3 THEN \\\'Private For-profit\\\'
-END GovType
-from (select CONTROL, TotalCost, SchoolSize, AVG(C150_4) as GradRate
-from (select CONTROL, SchoolSize, C150_4,
-CASE
-WHEN COSTT4_A > 30000 THEN \\\'3 HIGH\\\'
-WHEN COSTT4_A > 15000 THEN \\\'2 MEDIUM\\\'
-ELSE \\\'1 LOW\\\'
-END TotalCost
-from (SELECT C150_4, COSTT4_A, CONTROL,
-CASE
-WHEN Ugds <= 5000 THEN \\\'1 Small\\\'
-WHEN Ugds <= 10000 THEN \\\'2 Medium\\\'
-WHEN Ugds <= 25000 THEN \\\'3 Large\\\'
-ELSE \\\'4 VeryLarge\\\'
-END SchoolSize
-from COLLEGE_DATA_2013
-where (Costt4_A is NOT NULL
-AND C150_4 is NOT NULL
-AND Ugds is NOT NULL)))
-Group By CONTROL, SchoolSize, TotalCost
-Order By CONTROL, TotalCost, SchoolSize))"
-')), httpheader=c(DB='jdbc:oracle:thin:@sayonara.microlab.cs.utexas.edu:1521:orcl', USER='C##cs329e_jjp378', PASS='orcl_jjp378', MODE='native_mode', MODEL='model', returnDimensions = 'False', returnFor = 'JSON', p1 = KPI_value()), verbose = TRUE)))
+""
+')), httpheader=c(DB='jdbc:oracle:thin:@sayonara.microlab.cs.utexas.edu:1521:orcl', USER='C##cs329e_jjp378', PASS='orcl_jjp378', MODE='native_mode', MODEL='model', returnDimensions = 'False', returnFor = 'JSON'), verbose = TRUE)))
   })
+  
+  df1()$CONTROL[df1()$CONTROL == 1] <- "Public"
+  df1()$CONTROL[df1()$CONTROL == 2] <- "Private Nonprofit"
+  df1()$CONTROL[df1()$CONTROL == 3] <- "Private For-Profit"
+  df1()$GRADRATE <- round(df1()$GRADRATE, 4)
+  df1()$KPI[df1()$G
+  df1()$KPI[df1()$GRADRATE <= .5] <- "FAIL"
   
   output$distPlot1 <- renderPlot({             
     plot <- ggplot() +
       coord_cartesian() + 
       scale_x_discrete() +
       scale_y_discrete() +
-      facet_grid(GOVTYPE~.) +
+      facet_grid(CONTROL~.) +
       labs(title='Performance of College Types') +
       labs(x="School Size", y="Cost of School / Governance Type") +
       layer(data=df1(), 
-            mapping=aes(x=SCHOOLSIZE, y=TOTALCOST, label=round(GRADRATE, 4)), 
+            mapping=aes(x=SCHOOLSIZE, y=TOTALCOST, label=GRADRATE), 
             stat="identity",
             stat_params=list(),
             geom="text",
